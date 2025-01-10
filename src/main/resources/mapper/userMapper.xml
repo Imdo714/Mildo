@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="User">
+
+    <resultMap id="userResultMap" type="userVO">
+        <result property="userId" column="user_id" />
+        <result property="studyId" column="study_id" />
+        <result property="userName" column="user_name" />
+        <result property="userGoogleId" column="user_googleid" />
+        <result property="userEmail" column="user_email" />
+        <result property="userSolvedProblem" column="user_solvedproblem" />
+        <result property="userParticipant" column="user_isparticipant" />
+        <result property="userLeader" column="user_leader" />
+        <result property="userNo" column="user_no" />
+        <result property="userTheme" column="user_theme" />
+        <result property="userDate" column="user_date" />
+    </resultMap>
+
+    <resultMap id="LevelCountResultMap" type="LevelCountDTO">
+        <result property="codeLevel" column="code_level" />
+        <result property="solvedCount" column="solved_count" />
+    </resultMap>
+
+    <resultMap id="codeResult" type="codeVO">
+        <result property="codeSolveDate" column="code_solvedate" />
+        <result property="codeTitle" column="code_title" />
+        <result property="codeLevel" column="code_level" />
+        <result property="codeSolvedTime" column="code_solvedtime" />
+    </resultMap>
+
+    <resultMap id="TokenResultMap" type="tokenVO">
+        <result property="userId" column="user_id" />
+        <result property="accessToken" column="access_token" />
+        <result property="refreshToken" column="refresh_token" />
+        <result property="expirationTime" column="expiration_time" />
+    </resultMap>
+
+    <resultMap id="AccessResultMap" type="accessVO">
+        <result property="accessToken" column="access_token" />
+        <result property="expirationTime" column="expiration_time" />
+    </resultMap>
+
+    <resultMap id="blackResultMap" type="blackTokenVO">
+        <result property="blackToken" column="black_token" />
+        <result property="expirationTime" column="expiration_time" />
+    </resultMap>
+
+    <insert id="createUserId">
+        INSERT INTO
+            USERS(user_id)
+        VALUES (#{userId})
+    </insert>
+
+    <select id="findUser" parameterType="java.lang.String" resultMap="userResultMap">
+        SELECT user_id,
+               study_id,
+               user_name,
+               user_email,
+               user_solvedproblem,
+               user_isparticipant,
+               user_leader,
+               user_no,
+               user_theme,
+               user_date
+        FROM users
+        WHERE user_googleid = #{number}
+    </select>
+
+    <select id="findNullUserId" resultType="java.lang.String">
+        SELECT user_id
+        FROM users
+        WHERE user_googleid IS NULL
+        LIMIT 1
+    </select>
+
+    <update id="saveUpdateUser">
+        UPDATE users
+        SET user_name = #{userName},
+            user_googleid = #{userGoogleId},
+            user_email = #{userEmail},
+            user_date = CURRENT_DATE,
+            user_theme = 'blue'
+        WHERE user_id = #{userId}
+    </update>
+
+    <select id="finduserId" parameterType="java.lang.String" resultMap="userResultMap">
+        SELECT user_id,
+               study_id,
+               user_name,
+               user_email,
+               user_solvedproblem,
+               user_isparticipant,
+               user_leader,
+               user_no,
+               user_theme,
+               user_date
+            FROM users
+        WHERE user_id = #{userId}
+          AND user_name IS NOT NULL
+    </select>
+
+    <select id="findToken" parameterType="java.lang.String" resultMap="TokenResultMap">
+        SELECT *
+        FROM TOKEN
+        WHERE user_id = #{userId}
+    </select>
+
+    <select id="findAccessToken" resultMap="AccessResultMap">
+        SELECT access_token,
+               expiration_time
+        FROM TOKEN
+        WHERE user_id = #{userId}
+    </select>
+
+    <insert id="saveToken" parameterType="tokenVO">
+        INSERT INTO TOKEN(user_id,
+                          access_token,
+                          refresh_token,
+                          expiration_time
+        )
+        VALUES (#{userId}, #{accessToken}, #{refreshToken}, #{expirationTime})
+    </insert>
+
+    <update id="saveUpdateToken">
+        UPDATE TOKEN
+        SET access_token = #{accessToken},
+            refresh_token = #{refreshToken},
+            expiration_time = #{expirationTime}
+        WHERE user_id = #{userId}
+    </update>
+
+    <update id="updateNewToken">
+        UPDATE TOKEN
+        SET access_token = #{accessToken},
+            expiration_time = #{expirationTime}
+        WHERE user_id = #{userId}
+    </update>
+
+    <select id="solvedLevelsList" parameterType="java.lang.String" resultMap="LevelCountResultMap">
+        SELECT c.code_level, COUNT(*) AS solved_count
+        FROM USERS u JOIN CODE c ON (u.user_id = c.user_id)
+        WHERE u.user_id = #{userId}
+        GROUP BY c.code_level
+        ORDER BY c.code_level
+    </select>
+
+    <update id="updateStudyId" parameterType="map">
+        UPDATE users
+        SET study_id = #{studyId},
+            user_leader = 'N',
+            user_isparticipant = CURRENT_DATE
+        WHERE user_id = #{userId}
+    </update>
+
+    <select id="checkExtensionSync" parameterType="map" resultType="int">
+        SELECT COUNT(*)
+        FROM users
+        WHERE user_id = #{userId}
+          AND study_id = #{studyId}
+    </select>
+
+    <delete id="userIdDeleteCode">
+        DELETE FROM CODE
+        WHERE user_id = #{userId}
+    </delete>
+
+    <delete id="userIdDeleteComment">
+        DELETE FROM COMMENT
+        WHERE user_id = #{userId}
+    </delete>
+
+    <update id="userIdChangNull">
+        UPDATE users
+        SET user_leader = null,
+            user_isparticipant = null,
+            user_solvedproblem = 0,
+            study_id = null
+        WHERE user_id = #{userId}
+    </update>
+
+    <update id="createStudy" parameterType="map">
+        UPDATE users
+        SET study_id = #{studyId},
+            user_leader = 'Y',
+            user_isparticipant = CURRENT_DATE
+        WHERE user_id = #{userId}
+    </update>
+
+    <delete id="userServiceOut">
+        DELETE FROM USERS
+        WHERE user_id = #{userId}
+    </delete>
+
+    <insert id="saveBlackToken">
+        INSERT INTO
+            BLACKLIST(black_token,
+                      black_expiration)
+        VALUES (#{blackToken}, #{expirationTime})
+    </insert>
+
+    <update id="tokenNull">
+        UPDATE token
+        SET access_token = null,
+            refresh_token = null,
+            expiration_time = null
+        WHERE user_id = #{userId}
+    </update>
+
+    <delete id="blackrest">
+        DELETE FROM BLACKLIST
+        WHERE CURRENT_TIMESTAMP > black_expiration
+    </delete>
+
+    <select id="checkBlackList" resultMap="blackResultMap">
+        SELECT *
+        FROM BLACKLIST
+        WHERE black_token = #{token}
+    </select>
+
+    <update id="changUserInfo" parameterType="map">
+        UPDATE users
+        SET user_name = #{userName},
+            user_theme = #{userTheme}
+        WHERE user_id = #{userId}
+    </update>
+
+    <update id="changUserTheme" parameterType="map">
+        UPDATE users
+        SET user_theme = #{userTheme}
+        WHERE user_id = #{userId}
+    </update>
+
+    <update id="changUserName" parameterType="map">
+        UPDATE users
+        SET user_name = #{userName}
+        WHERE user_id = #{userId}
+    </update>
+
+    <update id="solvedIncrement">
+        UPDATE USERS SET user_solvedproblem = user_solvedproblem + 1 WHERE user_id = #{userId}
+    </update>
+
+    <select id="Refresh" parameterType="java.lang.String" resultMap="TokenResultMap">
+        SELECT user_id, access_token, refresh_token,expiration_time
+        FROM TOKEN
+        WHERE user_id = #{userId}
+          AND expiration_time > CURRENT_TIMESTAMP
+    </select>
+
+    <select id="findRefreshTokenByUserId" resultMap="TokenResultMap">
+        SELECT refresh_token, expiration_time
+        FROM TOKEN
+        WHERE refresh_token = #{RefreshToken}
+    </select>
+
+</mapper>

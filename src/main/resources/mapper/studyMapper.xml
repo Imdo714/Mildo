@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="Study">
+
+    <resultMap id="studyResultMap" type="studyVO">
+        <result property="studyId" column="" />
+        <result property="studyId" column="study_Id" />
+        <result property="studyName" column="study_name" />
+        <result property="studyPassword" column="study_password" />
+        <result property="studyStart" column="study_start" />
+        <result property="studyEnd" column="study_end" />
+    </resultMap>
+
+    <resultMap id="userResultMap" type="userVO">
+        <result property="userId" column="user_id" />
+        <result property="studyId" column="study_id" />
+        <result property="userNo" column="user_no" />
+        <result property="userName" column="user_name" />
+        <result property="userEmail" column="user_email" />
+        <result property="userSolvedProblem" column="user_solvedproblem" />
+        <result property="userParticipant" column="user_isparticipant" />
+        <result property="userLeader" column="user_leader" />
+    </resultMap>
+
+    <resultMap id="daysResultMap" type="remainingDaysDTO">
+        <result property="remainingDays" column="remaining_days" />
+        <result property="elapsedDays" column="elapsed_days" />
+    </resultMap>
+
+    <resultMap id="rankResultMap" type="rankDTO">
+        <result property="userId" column="user_id" />
+        <result property="studyId" column="study_id" />
+        <result property="rank" column="rank" />
+        <result property="userName" column="user_name" />
+        <result property="solvedProblem" column="user_solvedproblem" />
+    </resultMap>
+
+    <update id="create" parameterType="studyVO">
+        UPDATE STUDY
+        SET study_name     = #{studyName},
+            study_password = #{studyPassword},
+            study_start    = #{studyStart},
+            study_end      = #{studyEnd}
+        WHERE study_id = #{studyId}
+    </update>
+
+    <select id="findStudyNo" parameterType="int" resultMap="studyResultMap">
+        SELECT study_Id,
+               study_name,
+               study_password,
+               study_start,
+               study_end
+        FROM STUDY
+        WHERE study_no = #{studyNo}
+    </select>
+
+    <select id="findStudyNextNo" resultType="int">
+        SELECT study_no
+        FROM STUDY
+        WHERE study_name IS NULL
+        ORDER BY study_no ASC
+        LIMIT 1
+    </select>
+
+    <select id="studyList" resultMap="userResultMap">
+        select *
+          from USERS
+         where study_Id = #{studyId}
+    </select>
+
+    <select id="totalMembers" resultType="_int">
+        SELECT COUNT(*)
+        FROM USERS
+        WHERE study_Id = #{studyId}
+    </select>
+
+    <select id="studyDays" parameterType="java.lang.String" resultMap="daysResultMap">
+            SELECT
+                GREATEST(0, CURRENT_DATE - study_start) AS elapsed_days
+            FROM STUDY
+            WHERE study_id = #{studyId}
+    </select>
+
+    <select id="studyDaysRe" parameterType="java.lang.String" resultMap="daysResultMap">
+        SELECT
+            CASE
+                WHEN CURRENT_DATE &lt; study_start THEN study_start - CURRENT_DATE
+                WHEN study_end IS NOT NULL AND CURRENT_DATE &gt; study_end THEN 0
+                ELSE study_end - CURRENT_DATE
+        END AS remaining_days
+            FROM STUDY
+            WHERE study_id = #{studyId}
+    </select>
+
+    <select id="totalrank" resultMap="rankResultMap">
+        SELECT
+            user_Id,
+            user_Name,
+            user_solvedproblem,
+            study.study_Id,
+            RANK() OVER (ORDER BY user_solvedproblem DESC) AS rank
+        FROM USERS
+                 JOIN STUDY ON study.study_Id = USERS.study_Id
+        WHERE study.study_Id = #{studyId}
+    </select>
+
+    <select id="getStartMonth" resultType="java.lang.String">
+        SELECT STUDY_START from study where study_Id = #{studyId}
+    </select>
+
+    <select id="getStudyMemberByMonth" resultType="java.lang.String" parameterType="java.lang.String">
+        SELECT
+            u.user_name
+        FROM
+            users u
+                JOIN
+            study s
+            ON
+                u.study_id = s.study_id
+        WHERE
+            u.study_id = #{study_Id}
+          AND u.user_isparticipant BETWEEN TO_DATE(#{subDate} || '-01', 'YYYY-MM-DD')
+          AND TO_DATE(#{month} || '-01', 'YYYY-MM-DD') + INTERVAL '1 month' - INTERVAL '1 day';
+    </select>
+
+    <select id="getStudyMemberIdByMonth" resultType="java.lang.String" parameterType="java.lang.String">
+        SELECT
+            u.user_id
+        FROM
+            users u
+                JOIN
+            study s
+            ON
+                u.study_id = s.study_id
+        WHERE
+            u.study_id = #{study_Id}
+          AND u.user_isparticipant BETWEEN TO_DATE(#{subDate} || '-01', 'YYYY-MM-DD')
+            AND TO_DATE(#{month} || '-01', 'YYYY-MM-DD') + INTERVAL '1 month' - INTERVAL '1 day';
+    </select>
+    <select id="getStudyName" resultType="java.lang.String" parameterType="java.lang.String">
+        SELECT study_name
+        FROM study
+        WHERE study_id = #{studyId};
+    </select>
+
+    <select id="checkstudyIdPassword" parameterType="map" resultType="int">
+        SELECT COUNT(*)
+        FROM study
+        WHERE study_Id = #{studyId}
+          AND study_password = #{studyPassword}
+    </select>
+
+    <update id="updateStudyName" parameterType="map">
+        UPDATE study
+        SET study_name = #{study_Name}
+        WHERE study_id = #{study_Id}
+    </update>
+
+    <update id="updateLeader" parameterType="map">
+        UPDATE USERS
+        SET user_leader = 'N'
+        WHERE study_id = #{study_Id}
+          AND user_leader = 'Y';
+
+        UPDATE USERS
+        SET user_leader = 'Y'
+        WHERE user_id = #{new_Leader_Id}
+          AND study_id = #{study_Id};
+    </update>
+
+    <update id="resetUserStudyInfo">
+        UPDATE USERS
+        SET user_leader = null,
+            user_isparticipant = null
+        WHERE study_id = #{studyId}
+    </update>
+
+    <delete id="deleteStudy">
+        DELETE
+        FROM STUDY
+        WHERE study_id = #{studyId}
+    </delete>
+
+    <update id="deleteStudyUser">
+        UPDATE users
+        SET user_leader = null,
+            user_isparticipant = null,
+            user_solvedproblem = 0
+        WHERE study_id = #{studyId}
+    </update>
+
+    <delete id="deleteStudyCode">
+        DELETE FROM code C
+            USING users U
+        WHERE C.user_id = U.user_id
+          AND U.study_id = #{studyId}
+    </delete>
+
+    <delete id="deleteStudyComment">
+        DELETE FROM comment C
+            USING users U
+        WHERE C.user_id = U.user_id
+          AND U.study_id = #{studyId}
+    </delete>
+
+    <insert id="createStudyId">
+        INSERT INTO STUDY(study_id) values (#{studyId})
+    </insert>
+
+    <select id="findNullStudyId" resultType="java.lang.String">
+        SELECT study_id
+        FROM study
+        WHERE study_name IS NULL
+            LIMIT 1
+    </select>
+
+    <update id="saveStudy">
+        UPDATE study
+        SET study_name = #{studyName},
+            study_password = #{studyPassword},
+            study_start = #{studyStart},
+            study_end = #{studyEnd}
+        WHERE study_id = #{studyId}
+    </update>
+
+    <select id="subDate" resultType="java.lang.String">
+        SELECT
+            SUBSTRING(TO_CHAR(s.study_start, 'YYYY-MM-DD'), 1, 7) AS start_date
+        FROM study s
+        WHERE study_id = #{studyId}
+    </select>
+
+</mapper>

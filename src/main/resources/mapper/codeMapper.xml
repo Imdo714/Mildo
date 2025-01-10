@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="code">
+
+    <resultMap id="codeResult" type="codeVO">
+        <result property="codeId" column="code_id" />
+        <result property="userId" column="user_id" />
+        <result property="codeTitle" column="code_title" />
+        <result property="codeReadme" column="code_readme" />
+        <result property="codeSource" column="code_source" />
+        <result property="codeLikes" column="code_likes" />
+        <result property="codeLevel" column="code_level" />
+        <result property="codeProblemId" column="code_problemid" />
+        <result property="codeSolvedTime" column="code_solvedtime" />
+        <result property="codeSolveDate" column="code_solvedate" />
+    </resultMap>
+
+    <resultMap id="commentResult" type="commentVO">
+        <result property="commentId" column="comment_id" />
+        <result property="codeId" column="code_id" />
+        <result property="userId" column="user_id" />
+        <result property="userName" column="user_name" />
+        <result property="commentContent" column="comment_content" />
+        <result property="commentDate" column="comment_date" />
+    </resultMap>
+
+    <resultMap id="recentResult" type="recentVO">
+        <result property="userName" column="user_name" />
+        <result property="userId" column="user_id" />
+        <result property="codeTitle" column="code_title" />
+        <result property="codeProblemid" column="code_problemid" />
+        <result property="codeSolveDate" column="code_solvedate" />
+    </resultMap>
+
+    <insert id="upload" parameterType="CodeVo">
+        INSERT INTO CODE (
+            user_id,
+            code_title,
+            code_readme,
+            code_source,
+            code_likes,
+            code_level,
+            code_problemid,
+            code_solvedtime,
+            code_solvedate
+        )
+        VALUES (#{userId}, #{codeTitle}, #{codeReadme}, #{codeSource}, #{codeLikes}, #{codeLevel}, #{codeProblemId}, #{codeSolvedTime}, #{codeSolveDate})
+    </insert>
+
+    <!-- 날짜별 푼 문제 -->
+    <select id="getSolvedByDaySelectedMonth" resultType="java.util.Map" parameterType="java.lang.String">
+        WITH date_count AS (
+        SELECT
+        TO_CHAR(code_solvedate, 'YYYY-MM-DD') AS code_solvedate,
+        COUNT(user_id) AS solved
+        FROM
+        code
+        WHERE
+        user_id = #{user_id}
+        AND TO_CHAR(code_solvedate, 'YYYY-MM') = #{month}
+        GROUP BY
+        TO_CHAR(code_solvedate, 'YYYY-MM-DD')
+        )
+        SELECT
+        code_solvedate,
+        SUM(solved) AS solved
+        FROM
+        date_count
+        GROUP BY
+        code_solvedate
+        ORDER BY
+        code_solvedate ASC;
+
+    </select>
+
+    <insert id="saveComment">
+        INSERT INTO COMMENT (
+        code_id,
+        user_id,
+        comment_content,
+        comment_date
+        )
+        VALUES (#{codeId}, #{userId}, #{commentContent}, CURRENT_TIMESTAMP)
+    </insert>
+
+<!--  해당 부분은 유저 매퍼에 있어야 하는 것이 아닌가의 대한 의문을 남깁니다. -이성훈-->
+    <select id="totalSolved" resultType="_int">
+        SELECT user_solvedproblem
+        FROM users
+        WHERE user_id = #{userId}
+    </select>
+
+    <select id="solvedList" resultMap="codeResult">
+        SELECT code_id,
+               code_title,
+               code_level,
+               code_solvedtime,
+               code_solvedate
+        FROM code
+        where user_id = #{userId}
+        ORDER BY code_solvedate DESC
+    </select>
+
+    <select id="solvedListCategory" resultMap="codeResult">
+        SELECT code_id,
+               code_title,
+               code_level,
+               code_solvedtime,
+               code_solvedate
+        FROM code
+        where user_id = #{userId}
+        ORDER BY code_level DESC
+    </select>
+
+    <select id="detailCode" resultMap="codeResult">
+        SELECT *
+        FROM code
+        where code_id = #{codeId} AND user_id = #{userId}
+    </select>
+
+    <select id="commentCount" resultType="int">
+        SELECT COUNT(*)
+        FROM COMMENT
+        where code_id = #{codeId}
+    </select>
+
+
+    <select id="CommentList" resultMap="commentResult">
+        SELECT comment_id,
+               code_id,
+               users.user_id,
+               users.user_name,
+               comment_content,
+               comment_date
+        FROM COMMENT
+        JOIN USERS ON users.user_id = comment.user_id
+        where comment.code_id = #{codeId}
+        ORDER BY comment_date DESC
+    </select>
+
+    <select id="getRecent" resultMap="recentResult">
+        SELECT
+            U.user_name,
+            U.user_id,
+            c.code_title,
+            C.code_problemid,
+            C.code_solvedate
+        FROM
+            code C
+                JOIN
+            users U ON C.user_id = U.user_id
+        WHERE U.study_id = #{studyId}
+          AND C.code_solvedate IS NOT NULL
+
+        ORDER BY
+            c.code_solvedate DESC
+            LIMIT 5;
+    </select>
+
+    <update id="updateComment">
+        UPDATE COMMENT
+        SET comment_content = #{commentContent},
+            comment_date = CURRENT_TIMESTAMP
+        WHERE comment_id = #{commentId}
+    </update>
+
+    <delete id="deleteComment">
+        DELETE FROM comment
+        WHERE comment_id = #{commentId}
+    </delete>
+
+    <select id="solvedSerachList" parameterType="map" resultMap="codeResult">
+        SELECT code_id,
+               code_title,
+               code_level,
+               code_solvedtime,
+               code_solvedate
+        FROM code
+        where user_id = #{userId}
+          AND code_title LIKE '%${codeTitle}%'
+        ORDER BY code_solvedate DESC
+    </select>
+
+    <select id="solvedSearchCategory" parameterType="map" resultMap="codeResult">
+        SELECT code_id,
+               code_title,
+               code_level,
+               code_solvedtime,
+               code_solvedate
+        FROM code
+        where user_id = #{userId}
+          AND code_title LIKE '%${codeTitle}%'
+        ORDER BY code_level DESC
+    </select>
+
+</mapper>
